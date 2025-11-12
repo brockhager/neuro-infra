@@ -2,14 +2,24 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use quinn::{ClientConfig, Endpoint, ServerConfig};
+use quinn::{ClientConfig, Endpoint, ServerConfig, Connection};
 use rustls::Certificate;
 use anyhow::Result;
 use tracing::{info, warn};
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum SyncMessage {
+    RequestCatalog { since: Option<i64> },
+    CatalogChunk { manifests: Vec<Manifest>, has_more: bool },
+    RequestManifest { cid: String },
+    ManifestData { cid: String, data: Vec<u8> },
+}
 
 pub struct Network {
     endpoint: Endpoint,
     peers: Arc<RwLock<HashMap<SocketAddr, Peer>>>,
+    connections: Arc<RwLock<HashMap<SocketAddr, Connection>>>,
     banlist: Arc<RwLock<HashMap<SocketAddr, std::time::Instant>>>,
     config: NetworkConfig,
 }
@@ -22,15 +32,15 @@ pub struct NetworkConfig {
     pub max_peers: usize,
 }
 
-#[derive(Debug)]
-pub struct Peer {
-    pub addr: SocketAddr,
-    pub node_id: String,
-    pub version: String,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Manifest {
+    pub cid: String,
+    pub data: Vec<u8>,
+    pub timestamp: i64,
 }
 
 impl Network {
-    pub async fn new(config: NetworkConfig) -> Result<Self> {
+    pub async fn new(config: NetworkConfig) -> Result<Arc<Self>> {
         let cert = rcgen::generate_simple_self_signed(vec!["localhost".into()])?;
         let cert_der = cert.serialize_der()?;
         let priv_key = cert.serialize_private_key_der();
@@ -43,12 +53,13 @@ impl Network {
         let client_config = ClientConfig::with_custom_certificate(cert_chain)?;
         endpoint.set_default_client_config(client_config);
 
-        Ok(Self {
+        Ok(Arc::new(Self {
             endpoint,
             peers: Arc::new(RwLock::new(HashMap::new())),
+            connections: Arc::new(RwLock::new(HashMap::new())),
             banlist: Arc::new(RwLock::new(HashMap::new())),
             config,
-        })
+        }))
     }
 
     pub async fn start(&self) -> Result<()> {
@@ -71,11 +82,12 @@ impl Network {
         // Listen for incoming connections
         while let Some(conn) = self.endpoint.accept().await {
             let peers = self.peers.clone();
+            let connections = self.connections.clone();
             let banlist = self.banlist.clone();
             tokio::spawn(async move {
                 if let Ok(conn) = conn.await {
                     // Handle handshake
-                    if let Err(e) = handle_handshake(conn, peers, banlist).await {
+                    if let Err(e) = handle_handshake(conn, peers, connections, banlist).await {
                         warn!("Handshake failed: {:?}", e);
                     }
                 }
@@ -95,20 +107,35 @@ impl Network {
 
         let conn = self.endpoint.connect(addr, "localhost")?.await?;
         let peers = self.peers.clone();
+        let connections = self.connections.clone();
         let banlist = self.banlist.clone();
         tokio::spawn(async move {
-            if let Err(e) = handle_handshake(conn, peers, banlist).await {
+            if let Err(e) = handle_handshake(conn, peers, connections, banlist).await {
                 warn!("Outgoing handshake failed: {:?}", e);
             }
         });
 
         Ok(())
     }
+
+    pub async fn send_sync_message(&self, addr: SocketAddr, message: &SyncMessage) -> Result<()> {
+        if let Some(conn) = self.connections.read().await.get(&addr) {
+            let (mut send, mut recv) = conn.open_bi().await?;
+            let data = serde_json::to_vec(message)?;
+            send.write_all(&data).await?;
+            send.finish().await?;
+            // Optionally read response
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!("No connection to peer"))
+        }
+    }
 }
 
 async fn handle_handshake(
     conn: quinn::Connection,
     peers: Arc<RwLock<HashMap<SocketAddr, Peer>>>,
+    connections: Arc<RwLock<HashMap<SocketAddr, Connection>>>,
     banlist: Arc<RwLock<HashMap<SocketAddr, std::time::Instant>>>,
 ) -> Result<()> {
     let (mut send, mut recv) = conn.accept_bi().await?;
@@ -139,7 +166,15 @@ async fn handle_handshake(
         version: peer_handshake.version,
     };
     peers.write().await.insert(conn.remote_address(), peer);
+    connections.write().await.insert(conn.remote_address(), conn.clone());
     info!("Connected to peer: {:?}", conn.remote_address());
+
+    // Start message handling loop
+    tokio::spawn(async move {
+        if let Err(e) = handle_messages(conn, peers, connections).await {
+            warn!("Message handling failed: {:?}", e);
+        }
+    });
 
     Ok(())
 }

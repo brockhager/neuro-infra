@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use std::fs;
+use std::sync::Arc;
 use anyhow::Result;
 use tracing_subscriber;
 
@@ -8,12 +9,15 @@ mod network;
 mod storage;
 mod ipfs;
 mod index;
+mod sync;
 
 use config::Config;
 use network::{Network, NetworkConfig};
 use storage::Storage;
 use ipfs::IpfsCache;
 use index::Index;
+use sync::SyncEngine;
+use sync::Sync;
 
 #[derive(Parser)]
 #[command(name = "nsd")]
@@ -73,14 +77,16 @@ async fn main() -> Result<()> {
                 max_peers: config.network.max_peers,
             };
             let network = Network::new(network_config).await?;
-            let storage = Storage::new("catalog.db")?;
+            let storage = Arc::new(Storage::new("catalog.db")?);
             let ipfs = IpfsCache::new();
             let mut index = Index::new();
             // Load existing manifests into index
             for manifest in storage.list_manifests()? {
                 index.insert(manifest);
             }
+            let sync_engine = SyncEngine::new(storage.clone(), network.clone());
             network.start().await?;
+            sync_engine.start_sync().await?;
         }
         Some(Commands::Catalog { catalog_cmd }) => {
             let storage = Storage::new("catalog.db")?;
