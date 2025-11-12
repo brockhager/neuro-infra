@@ -38,14 +38,29 @@ pub enum Commands {
     Start,
     Stop,
     Status,
-    Peer {
-        #[command(subcommand)]
-        peer_cmd: PeerCommands,
-    },
     Catalog {
         #[command(subcommand)]
         catalog_cmd: CatalogCommands,
     },
+    Peer {
+        #[command(subcommand)]
+        peer_cmd: PeerCommands,
+    },
+    Index {
+        #[command(subcommand)]
+        index_cmd: IndexCommands,
+    },
+    Anchor {
+        #[command(subcommand)]
+        anchor_cmd: AnchorCommands,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum CatalogCommands {
+    List,
+    Prune { days: u32 },
+    Stats,
 }
 
 #[derive(Subcommand)]
@@ -56,10 +71,15 @@ pub enum PeerCommands {
 }
 
 #[derive(Subcommand)]
-pub enum CatalogCommands {
-    List,
-    Prune { days: u32 },
-    Stats,
+pub enum IndexCommands {
+    Search { query: Option<String>, tag: Option<String> },
+    Lineage { cid: String },
+    Confidence { cid: String },
+}
+
+#[derive(Subcommand)]
+pub enum AnchorCommands {
+    Verify { cid: String, creator: String },
 }
 
 #[tokio::main]
@@ -112,8 +132,34 @@ async fn main() -> Result<()> {
                 }
             }
         }
-        _ => {
-            println!("Use 'nsd start' to start the daemon");
+        Some(Commands::Index { index_cmd }) => {
+            let index = Index::new();
+            // Load from storage
+            let storage = Storage::new("catalog.db")?;
+            for manifest in storage.list_manifests()? {
+                index.insert(manifest);
+            }
+            match index_cmd {
+                IndexCommands::Search { query, tag } => {
+                    // Mock search
+                    println!("Search results for query: {:?}, tag: {:?}", query, tag);
+                }
+                IndexCommands::Lineage { cid } => {
+                    println!("Lineage for {}: Mock lineage data", cid);
+                }
+                IndexCommands::Confidence { cid } => {
+                    println!("Confidence for {}: Mock confidence score", cid);
+                }
+            }
+        }
+        Some(Commands::Anchor { anchor_cmd }) => {
+            let anchor = Anchor::new("https://api.devnet.solana.com", "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS")?;
+            match anchor_cmd {
+                AnchorCommands::Verify { cid, creator } => {
+                    let verified = anchor.verify_manifest(&cid, &creator).await?;
+                    println!("Verification result for {}: {}", cid, verified);
+                }
+            }
         }
     }
 
