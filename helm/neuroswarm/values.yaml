@@ -1,0 +1,41 @@
+# Default values for neuroswarm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: neuroswarm/node
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+mode: full  # validator | gateway | indexer | full
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: neuroswarm.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

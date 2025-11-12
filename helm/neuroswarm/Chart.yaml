@@ -1,0 +1,16 @@
+apiVersion: v2
+name: neuroswarm
+description: NeuroSwarm decentralized AI platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+
+keywords:
+  - ai
+  - blockchain
+  - decentralized
+  - neuroswarm
+
+maintainers:
+  - name: brockhager
+    email: brock@example.com
