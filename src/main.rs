@@ -10,6 +10,7 @@ mod storage;
 mod ipfs;
 mod index;
 mod sync;
+mod anchor;
 
 use config::Config;
 use network::{Network, NetworkConfig};
@@ -17,7 +18,9 @@ use storage::Storage;
 use ipfs::IpfsCache;
 use index::Index;
 use sync::SyncEngine;
+use anchor::Anchor;
 use sync::Sync;
+use anchor::Anchor;
 
 #[derive(Parser)]
 #[command(name = "nsd")]
@@ -78,13 +81,14 @@ async fn main() -> Result<()> {
             };
             let network = Network::new(network_config).await?;
             let storage = Arc::new(Storage::new("catalog.db")?);
+            let anchor = Arc::new(Anchor::new(&config.solana.rpc_url, &config.solana.program_id)?);
             let ipfs = IpfsCache::new();
             let mut index = Index::new();
             // Load existing manifests into index
             for manifest in storage.list_manifests()? {
                 index.insert(manifest);
             }
-            let sync_engine = SyncEngine::new(storage.clone(), network.clone());
+            let sync_engine = SyncEngine::new(storage.clone(), network.clone(), anchor.clone());
             network.start().await?;
             sync_engine.start_sync().await?;
         }

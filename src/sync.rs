@@ -7,18 +7,21 @@ use crate::network::SyncMessage;
 
 use crate::storage::{Storage, Manifest};
 use crate::network::{Peer, SyncMessage, Network};
+use crate::anchor::{Anchor, ManifestProvenance};
 
 pub struct SyncEngine {
     storage: Arc<Storage>,
     network: Arc<Network>,
+    anchor: Arc<Anchor>,
     last_sync: Arc<RwLock<HashMap<std::net::SocketAddr, i64>>>,
 }
 
 impl SyncEngine {
-    pub fn new(storage: Arc<Storage>, network: Arc<Network>) -> Self {
+    pub fn new(storage: Arc<Storage>, network: Arc<Network>, anchor: Arc<Anchor>) -> Self {
         Self {
             storage,
             network,
+            anchor,
             last_sync: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -59,8 +62,20 @@ impl SyncEngine {
             }
             SyncMessage::CatalogChunk { manifests, has_more: _ } => {
                 for manifest in manifests {
-                    if let Err(e) = self.storage.insert_manifest(&manifest) {
-                        error!("Failed to insert manifest {}: {:?}", manifest.cid, e);
+                    // Verify with Solana
+                    if let Ok(true) = self.anchor.verify_manifest(&manifest.cid, "mock_creator").await {
+                        if let Ok(Some(provenance)) = self.anchor.get_manifest_provenance(&manifest.cid, "mock_creator").await {
+                            let prov = crate::storage::Provenance {
+                                finalized: provenance.finalized,
+                                attestation_count: provenance.attestation_count,
+                                tx_signature: provenance.tx_signature,
+                                slot: provenance.slot,
+                            };
+                            self.storage.cache_provenance(&manifest.cid, &prov)?;
+                        }
+                        self.storage.insert_manifest(&manifest)?;
+                    } else {
+                        warn!("Manifest {} failed verification", manifest.cid);
                     }
                 }
                 Ok(None)

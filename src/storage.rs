@@ -13,6 +13,14 @@ pub struct Manifest {
     pub timestamp: i64,
 }
 
+#[derive(Debug)]
+pub struct Provenance {
+    pub finalized: bool,
+    pub attestation_count: u64,
+    pub tx_signature: String,
+    pub slot: u64,
+}
+
 impl Storage {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self> {
         let conn = Connection::open(path)?;
@@ -25,13 +33,14 @@ impl Storage {
             [],
         )?;
         conn.execute(
-            "CREATE TABLE IF NOT EXISTS attestations (
-                id INTEGER PRIMARY KEY,
-                manifest_cid TEXT,
-                validator TEXT,
-                confidence REAL,
-                timestamp INTEGER,
-                FOREIGN KEY(manifest_cid) REFERENCES manifests(cid)
+            "CREATE TABLE IF NOT EXISTS provenance (
+                cid TEXT PRIMARY KEY,
+                finalized BOOLEAN,
+                attestation_count INTEGER,
+                tx_signature TEXT,
+                slot INTEGER,
+                cached_at INTEGER,
+                FOREIGN KEY(cid) REFERENCES manifests(cid)
             )",
             [],
         )?;
@@ -88,18 +97,29 @@ impl Storage {
         Ok(count)
     }
 
-    pub fn stats(&self) -> Result<(usize, usize)> {
-        let manifest_count: usize = self.conn.query_row(
-            "SELECT COUNT(*) FROM manifests",
-            [],
-            |row| row.get(0),
+    pub fn cache_provenance(&self, cid: &str, provenance: &Provenance) -> Result<()> {
+        self.conn.execute(
+            "INSERT OR REPLACE INTO provenance (cid, finalized, attestation_count, tx_signature, slot, cached_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![cid, provenance.finalized, provenance.attestation_count, provenance.tx_signature, provenance.slot, chrono::Utc::now().timestamp()],
         )?;
-        let attestation_count: usize = self.conn.query_row(
-            "SELECT COUNT(*) FROM attestations",
-            [],
-            |row| row.get(0),
-        )?;
-        Ok((manifest_count, attestation_count))
+        Ok(())
+    }
+
+    pub fn get_provenance(&self, cid: &str) -> Result<Option<Provenance>> {
+        let mut stmt = self.conn.prepare("SELECT finalized, attestation_count, tx_signature, slot FROM provenance WHERE cid = ?1")?;
+        let mut rows = stmt.query_map(params![cid], |row| {
+            Ok(Provenance {
+                finalized: row.get(0)?,
+                attestation_count: row.get(1)?,
+                tx_signature: row.get(2)?,
+                slot: row.get(3)?,
+            })
+        })?;
+        if let Some(provenance) = rows.next() {
+            Ok(Some(provenance?))
+        } else {
+            Ok(None)
+        }
     }
 }
 
