@@ -46,3 +46,9 @@ jobs:
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         platforms: linux/amd64,linux/arm64
+        sbom: true
+        provenance: true
+
+    - name: Sign image
+      run: |
+        cosign sign --key env://COSIGN_PRIVATE_KEY ${{ steps.meta.outputs.tags }}

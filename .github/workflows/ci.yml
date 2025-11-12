@@ -34,3 +34,12 @@ jobs:
     - name: Validate RBAC manifests
       run: |
         kubectl apply --dry-run=client -f infra/k8s/rbac.yaml
+
+  dependency-scan:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+    - name: Run cargo audit
+      run: cargo install cargo-audit && cargo audit
