@@ -15,6 +15,7 @@
 - [ ] Implement role-based access for APIs and services.
 - [ ] Use least privilege principle for user permissions.
 - [ ] Audit access logs regularly.
+- [ ] Validate RBAC manifests in CI before deployment.
 
 ## Threat Model Updates
 - [ ] Update threat model in docs/security.md for new features.
@@ -25,6 +26,7 @@
 - [ ] Use TLS/Noise for all network communications.
 - [ ] Harden containers (non-root users, minimal images).
 - [ ] Enable monitoring and alerting for anomalies.
+- [ ] For Helm/Terraform: Use secrets management (e.g., Vault), encrypt state files, restrict provider access.
 
 ## Compliance
 - [ ] Ensure GDPR/CCPA compliance for user data handling.

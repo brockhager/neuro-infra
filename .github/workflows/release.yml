@@ -19,8 +19,26 @@ jobs:
     - name: Get version
       id: version
       run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    - name: Generate Changelog
+      uses: orhun/git-cliff-action@v2
+      id: git-cliff
+      with:
+        config: cliff.toml
+        args: --verbose --latest --strip header
+      env:
+        OUTPUT: CHANGELOG.md
     - name: Build Docker images
       run: |
         docker buildx build --platform ${{ matrix.platform }} -t neuroswarm/infra:latest --push .
         docker buildx build --platform ${{ matrix.platform }} -t neuroswarm/infra:${{ steps.version.outputs.version }} --push .
         docker buildx build --platform ${{ matrix.platform }} -t neuroswarm/infra:${{ github.event.release.tag_name }} --push .
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        image: neuroswarm/infra:${{ github.event.release.tag_name }}
+        output-file: ./sbom.spdx.json
+    - name: Upload SBOM
+      uses: actions/upload-artifact@v3
+      with:
+        name: sbom
+        path: ./sbom.spdx.json

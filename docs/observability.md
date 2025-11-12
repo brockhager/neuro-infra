@@ -25,4 +25,7 @@
 - **Grafana**: http://localhost:3000 (admin/admin) (Docker) or LoadBalancer service (K8s)
 - **Jaeger**: http://localhost:16686 (Docker) or LoadBalancer service (K8s)
 
-Configure Grafana data sources to point to Prometheus for metrics visualization.
+## Dashboard Setup
+1. In Grafana, add Prometheus as a data source (URL: http://prometheus:9090).
+2. Import dashboards from `infra/grafana/dashboards/` (e.g., gateway.json for API metrics).
+3. Configure alerts for high error rates or latency.

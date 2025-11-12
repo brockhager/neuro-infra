@@ -1,0 +1,8 @@
+replicaCount: 2
+
+image:
+  repository: neuroswarm/indexer
+  tag: "latest"
+
+database:
+  url: "postgres://user:pass@db:5432/neuro"

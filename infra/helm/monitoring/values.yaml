@@ -1,0 +1,9 @@
+prometheus:
+  enabled: true
+
+grafana:
+  enabled: true
+  adminPassword: admin
+
+jaeger:
+  enabled: true

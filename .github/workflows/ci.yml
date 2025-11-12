@@ -15,17 +15,22 @@ jobs:
       run: shellcheck scripts/*.sh
     - name: Validate YAML
       run: yamllint infra/ docs/
-    - name: Secret scanning
+    - name: Secret scanning with TruffleHog
       uses: trufflesecurity/trufflehog@main
       with:
         path: ./
         base: main
         head: HEAD
         extra_args: --debug --only-verified
+    - name: Secret scanning with Gitleaks
+      uses: gitleaks/gitleaks-action@v2
+      with:
+        config-path: .gitleaks.toml
 
-  test:
+  rbac-validation:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Run tests
-      run: echo "No tests yet"  # Add test commands later
+    - name: Validate RBAC manifests
+      run: |
+        kubectl apply --dry-run=client -f infra/k8s/rbac.yaml
