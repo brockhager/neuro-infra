@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  neuro-gateway:
+    image: neuroswarm/gateway:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+    depends_on:
+      - neuro-indexer
+
+  neuro-indexer:
+    image: neuroswarm/indexer:latest
+    ports:
+      - "8081:8081"
+    environment:
+      - DATABASE_URL=postgres://user:pass@db:5432/neuro
+    depends_on:
+      - db
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: neuro
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+volumes:
+  db_data:
