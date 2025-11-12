@@ -29,6 +29,9 @@ pub struct Args {
     #[arg(short, long, default_value = "~/.neuroswarm/ns.conf")]
     pub config: String,
 
+    #[arg(long)]
+    pub mode: Option<String>,
+
     #[command(subcommand)]
     pub command: Option<Commands>,
 }
@@ -89,28 +92,67 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     let config_content = fs::read_to_string(&args.config)?;
-    let config: Config = serde_yaml::from_str(&config_content)?;
+    let mut config: Config = serde_yaml::from_str(&config_content)?;
+
+    // Override mode if specified
+    if let Some(mode) = &args.mode {
+        config.node.mode = mode.clone();
+    }
+
+    let mode = config.node.mode.as_str();
 
     match args.command {
         Some(Commands::Start) => {
+            info!("Starting NeuroSwarm node in {} mode", mode);
+
             let network_config = NetworkConfig {
                 dns_seeds: config.network.dns_seeds,
                 static_peers: config.network.static_peers,
                 listen_addr: config.network.listen_addr,
                 max_peers: config.network.max_peers,
             };
-            let network = Network::new(network_config).await?;
+
+            // Always start network for connectivity
+            let network = Arc::new(Network::new(network_config).await?);
             let storage = Arc::new(Storage::new("catalog.db")?);
-            let anchor = Arc::new(Anchor::new(&config.solana.rpc_url, &config.solana.program_id)?);
-            let ipfs = IpfsCache::new();
+
+            // Load index for all modes that need it
             let mut index = Index::new();
-            // Load existing manifests into index
             for manifest in storage.list_manifests()? {
                 index.insert(manifest);
             }
-            let sync_engine = SyncEngine::new(storage.clone(), network.clone(), anchor.clone());
-            network.start().await?;
-            sync_engine.start_sync().await?;
+
+            match mode {
+                "validator" => {
+                    // Validator: network, storage, anchor, sync
+                    let anchor = Arc::new(Anchor::new(&config.solana.rpc_url, &config.solana.program_id)?);
+                    let sync_engine = SyncEngine::new(storage.clone(), network.clone(), anchor.clone());
+                    network.start().await?;
+                    sync_engine.start_sync().await?;
+                    info!("Validator mode: anchoring and consensus active");
+                }
+                "gateway" => {
+                    // Gateway: network, storage, API server (future: start HTTP server)
+                    network.start().await?;
+                    info!("Gateway mode: API server active");
+                    // TODO: Start HTTP server for API endpoints
+                }
+                "indexer" => {
+                    // Indexer: network, storage, index, search APIs (future: start search server)
+                    network.start().await?;
+                    info!("Indexer mode: search and lineage active");
+                    // TODO: Start search API server
+                }
+                "full" | _ => {
+                    // Full node: all components
+                    let anchor = Arc::new(Anchor::new(&config.solana.rpc_url, &config.solana.program_id)?);
+                    let ipfs = IpfsCache::new();
+                    let sync_engine = SyncEngine::new(storage.clone(), network.clone(), anchor.clone());
+                    network.start().await?;
+                    sync_engine.start_sync().await?;
+                    info!("Full mode: all components active");
+                }
+            }
         }
         Some(Commands::Catalog { catalog_cmd }) => {
             let storage = Storage::new("catalog.db")?;

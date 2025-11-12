@@ -19,6 +19,7 @@ pub struct NetworkConfig {
 pub struct NodeConfig {
     pub node_id: String,
     pub version: String,
+    pub mode: String, // validator, gateway, indexer, full
 }
 
 #[derive(Debug, Deserialize, Serialize)]
