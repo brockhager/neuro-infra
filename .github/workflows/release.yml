@@ -9,12 +9,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+    - name: Get version
+      id: version
+      run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
     - name: Build Docker images
       run: |
         docker build -t neuroswarm/infra:latest .
+        docker tag neuroswarm/infra:latest neuroswarm/infra:${{ steps.version.outputs.version }}
         docker tag neuroswarm/infra:latest neuroswarm/infra:${{ github.event.release.tag_name }}
     - name: Push to Docker Hub
       run: |
         echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
         docker push neuroswarm/infra:latest
+        docker push neuroswarm/infra:${{ steps.version.outputs.version }}
         docker push neuroswarm/infra:${{ github.event.release.tag_name }}
