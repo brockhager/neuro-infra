@@ -16,6 +16,7 @@
 - API response times and error rates
 - Resource usage (CPU, memory, disk)
 - Peer events: connections, disconnections, handshakes
+- Catalog size, cache hits/misses
 
 ## Tracing
 - Distributed tracing for request flows

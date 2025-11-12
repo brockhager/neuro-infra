@@ -5,9 +5,15 @@ use tracing_subscriber;
 
 mod config;
 mod network;
+mod storage;
+mod ipfs;
+mod index;
 
 use config::Config;
 use network::{Network, NetworkConfig};
+use storage::Storage;
+use ipfs::IpfsCache;
+use index::Index;
 
 #[derive(Parser)]
 #[command(name = "nsd")]
@@ -29,6 +35,10 @@ pub enum Commands {
         #[command(subcommand)]
         peer_cmd: PeerCommands,
     },
+    Catalog {
+        #[command(subcommand)]
+        catalog_cmd: CatalogCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -36,6 +46,13 @@ pub enum PeerCommands {
     Add { addr: String },
     List,
     Remove { addr: String },
+}
+
+#[derive(Subcommand)]
+pub enum CatalogCommands {
+    List,
+    Prune { days: u32 },
+    Stats,
 }
 
 #[tokio::main]
@@ -56,21 +73,32 @@ async fn main() -> Result<()> {
                 max_peers: config.network.max_peers,
             };
             let network = Network::new(network_config).await?;
+            let storage = Storage::new("catalog.db")?;
+            let ipfs = IpfsCache::new();
+            let mut index = Index::new();
+            // Load existing manifests into index
+            for manifest in storage.list_manifests()? {
+                index.insert(manifest);
+            }
             network.start().await?;
         }
-        Some(Commands::Peer { peer_cmd }) => {
-            match peer_cmd {
-                PeerCommands::Add { addr } => {
-                    println!("Adding peer: {}", addr);
-                    // TODO: add to config
+        Some(Commands::Catalog { catalog_cmd }) => {
+            let storage = Storage::new("catalog.db")?;
+            match catalog_cmd {
+                CatalogCommands::List => {
+                    let manifests = storage.list_manifests()?;
+                    for m in manifests {
+                        println!("CID: {}", m.cid);
+                    }
                 }
-                PeerCommands::List => {
-                    println!("Listing peers");
-                    // TODO: list from network
+                CatalogCommands::Prune { days } => {
+                    let before = chrono::Utc::now().timestamp() - (days as i64 * 86400);
+                    let count = storage.prune_old(before)?;
+                    println!("Pruned {} manifests", count);
                 }
-                PeerCommands::Remove { addr } => {
-                    println!("Removing peer: {}", addr);
-                    // TODO: remove from config
+                CatalogCommands::Stats => {
+                    let (m_count, a_count) = storage.stats()?;
+                    println!("Manifests: {}, Attestations: {}", m_count, a_count);
                 }
             }
         }
