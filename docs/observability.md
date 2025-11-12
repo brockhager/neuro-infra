@@ -15,6 +15,7 @@
 - Sync progress and latency
 - API response times and error rates
 - Resource usage (CPU, memory, disk)
+- Peer events: connections, disconnections, handshakes
 
 ## Tracing
 - Distributed tracing for request flows
@@ -29,3 +30,4 @@
 1. In Grafana, add Prometheus as a data source (URL: http://prometheus:9090).
 2. Import dashboards from `infra/grafana/dashboards/` (e.g., gateway.json for API metrics).
 3. Configure alerts for high error rates or latency.
+4. Monitor peer logs for connection events.
