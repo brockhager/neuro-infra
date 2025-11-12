@@ -1,0 +1,5 @@
+replicaCount: 3
+
+image:
+  repository: neuroswarm/gateway
+  tag: "latest"

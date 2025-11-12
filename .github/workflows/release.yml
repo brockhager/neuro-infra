@@ -7,19 +7,20 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
     steps:
     - uses: actions/checkout@v3
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
     - name: Get version
       id: version
       run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
     - name: Build Docker images
       run: |
-        docker build -t neuroswarm/infra:latest .
-        docker tag neuroswarm/infra:latest neuroswarm/infra:${{ steps.version.outputs.version }}
-        docker tag neuroswarm/infra:latest neuroswarm/infra:${{ github.event.release.tag_name }}
-    - name: Push to Docker Hub
-      run: |
-        echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
-        docker push neuroswarm/infra:latest
-        docker push neuroswarm/infra:${{ steps.version.outputs.version }}
-        docker push neuroswarm/infra:${{ github.event.release.tag_name }}
+        docker buildx build --platform ${{ matrix.platform }} -t neuroswarm/infra:latest --push .
+        docker buildx build --platform ${{ matrix.platform }} -t neuroswarm/infra:${{ steps.version.outputs.version }} --push .
+        docker buildx build --platform ${{ matrix.platform }} -t neuroswarm/infra:${{ github.event.release.tag_name }} --push .

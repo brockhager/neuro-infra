@@ -9,6 +9,7 @@
 - [ ] Use Ed25519 keys for node identity and attestation.
 - [ ] Store keys securely (e.g., hardware wallets or encrypted storage).
 - [ ] Rotate keys regularly and revoke compromised ones.
+- [ ] Follow rotation procedures: Generate new key, update configs, test, then delete old key.
 
 ## RBAC and Access Control
 - [ ] Implement role-based access for APIs and services.
@@ -28,3 +29,4 @@
 ## Compliance
 - [ ] Ensure GDPR/CCPA compliance for user data handling.
 - [ ] Document data retention and deletion policies.
+- [ ] Conduct regular compliance audits.

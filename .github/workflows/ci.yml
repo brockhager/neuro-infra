@@ -15,6 +15,13 @@ jobs:
       run: shellcheck scripts/*.sh
     - name: Validate YAML
       run: yamllint infra/ docs/
+    - name: Secret scanning
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: main
+        head: HEAD
+        extra_args: --debug --only-verified
 
   test:
     runs-on: ubuntu-latest

@@ -19,3 +19,10 @@
 ## Tracing
 - Distributed tracing for request flows
 - Jaeger or OpenTelemetry integration
+
+## Accessing Dashboards
+- **Prometheus**: http://localhost:9090 (Docker) or LoadBalancer service (K8s)
+- **Grafana**: http://localhost:3000 (admin/admin) (Docker) or LoadBalancer service (K8s)
+- **Jaeger**: http://localhost:16686 (Docker) or LoadBalancer service (K8s)
+
+Configure Grafana data sources to point to Prometheus for metrics visualization.
