@@ -1,0 +1,96 @@
+name: Documentation Structure Enforcement
+
+on:
+  pull_request:
+    paths:
+      - '**/*.md'
+  push:
+    branches: [main, master]
+    paths:
+      - '**/*.md'
+
+jobs:
+  check-docs-structure:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for .md files outside /docs/
+        run: |
+          # Find all .md files in the repository
+          md_files=$(find . -name "*.md" -type f | grep -v "^./.git/")
+
+          # Check if any .md files are outside the docs directory
+          invalid_files=""
+          for file in $md_files; do
+            # Skip the root README.md
+            if [[ "$file" == "./README.md" ]]; then
+              continue
+            fi
+
+            # Check if file is outside docs/
+            if [[ "$file" != ./neuroswarm/docs/* ]]; then
+              invalid_files="$invalid_files$file\n"
+            fi
+          done
+
+          if [[ -n "$invalid_files" ]]; then
+            echo "❌ ERROR: Found .md files outside /neuroswarm/docs/ directory:"
+            echo "$invalid_files"
+            echo ""
+            echo "📋 Documentation Structure Rules:"
+            echo "• All .md files must be placed in /neuroswarm/docs/<subfolder>/"
+            echo "• Use the appropriate subfolder based on content:"
+            echo "  - /docs/general/     - READMEs, overviews, contributing"
+            echo "  - /docs/governance/  - voting, charters, contributor portal"
+            echo "  - /docs/networking/  - nodes, gateways, indexing"
+            echo "  - /docs/program/     - smart contracts, blockchain"
+            echo "  - /docs/services/    - APIs, storage, extensions"
+            echo "  - /docs/web/         - frontend, UI, UX"
+            echo "  - /docs/infra/       - repository, CI/CD, tooling"
+            echo "  - /docs/onboarding/  - getting started, quickstart"
+            echo "  - /docs/misc/        - economics, security, proposals"
+            echo ""
+            echo "📖 See /neuroswarm/docs/README.md for complete navigation guide"
+            echo "🤝 Check /neuroswarm/docs/general/CONTRIBUTING.md for contribution guidelines"
+            exit 1
+          else
+            echo "✅ All .md files are properly organized in /neuroswarm/docs/"
+          fi
+
+      - name: Validate documentation links
+        run: |
+          # Check for broken relative links in docs
+          echo "🔍 Checking for broken relative links in documentation..."
+
+          # This is a basic check - could be enhanced with a more sophisticated link checker
+          cd neuroswarm/docs
+
+          # Find all .md files and check their relative links
+          find . -name "*.md" -exec grep -H '\[.*\](\.\./\|\./)' {} \; | while IFS=: read -r file link_line; do
+            # Extract the link path from the markdown
+            link_path=$(echo "$link_line" | grep -o '\[.*\](\([^)]*\))' | sed 's/.*(\([^)]*\)).*/\1/')
+
+            # Skip absolute URLs and anchors
+            if [[ "$link_path" =~ ^https?:// ]] || [[ "$link_path" =~ ^# ]]; then
+              continue
+            fi
+
+            # Resolve the relative path
+            dir_path=$(dirname "$file")
+            resolved_path="$dir_path/$link_path"
+
+            # Normalize the path
+            resolved_path=$(realpath -m "$resolved_path" 2>/dev/null || echo "$resolved_path")
+
+            # Check if the target exists
+            if [[ ! -e "$resolved_path" ]]; then
+              echo "⚠️  Broken link in $file: $link_path"
+              echo "   Resolved to: $resolved_path"
+            fi
+          done
+
+          echo "✅ Link validation complete"
