@@ -15,6 +15,19 @@ jobs:
       with:
         fetch-depth: 0
 
+    - name: Check for stray files in monorepo root
+      run: |
+        # List files in root (excluding directories and .git)
+        stray_files=$(find . -maxdepth 1 -type f | grep -v -E '\.(git|github)' || true)
+        if [ -n "$stray_files" ]; then
+          echo "❌ Found stray files in monorepo root:"
+          echo "$stray_files"
+          echo "All files must be placed within repository subdirectories."
+          exit 1
+        else
+          echo "✅ No stray files found in monorepo root."
+        fi
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
