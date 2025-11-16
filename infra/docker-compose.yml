@@ -60,6 +60,7 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
+      - GATEWAY_URLS=http://gateway-node:8080
     restart: unless-stopped
   gateway-node:
     build: ../../neuroswarm/gateway-node
@@ -67,7 +68,21 @@ services:
       - "8082:8080"
     environment:
       - PORT=8080
+      - NS_NODE_URL=http://ns-node:3000
     restart: unless-stopped
+    depends_on:
+      - ns-node
+  vp-node:
+    build: ../../neuroswarm/vp-node
+    ports:
+      - "8083:8080"
+    environment:
+      - NS_NODE_URL=http://ns-node:3000
+      - VALIDATOR_ID=vp-node-1
+      - INIT_STAKE=10
+    restart: unless-stopped
+    depends_on:
+      - ns-node
 
 volumes:
   db_data:
