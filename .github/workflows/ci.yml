@@ -52,18 +52,15 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: '20'
-    - name: Install dependencies (neuro-services)
-      run: npm ci
-      working-directory: ./neuro-services
+    - name: Install pnpm and workspace dependencies
+      run: |
+        npm install -g pnpm@8
+        pnpm install -w
     - name: Install dependencies (admin-node)
-      run: npm ci
-      working-directory: ./neuroswarm/admin-node
+      run: pnpm -C neuroswarm/admin-node install --frozen-lockfile
     - name: Install dependencies (neuro-web)
-      run: npm ci
-      working-directory: ./neuro-web
+      run: pnpm -C neuro-web install --frozen-lockfile
     - name: Run neuro-services tests with detectOpenHandles
-      run: npm test -- --runInBand --detectOpenHandles
-      working-directory: ./neuro-services
+      run: pnpm -C neuro-services test -- --runInBand --detectOpenHandles
     - name: Run admin-node tests with detectOpenHandles
-      run: npm test -- --runInBand --detectOpenHandles
-      working-directory: ./neuroswarm/admin-node
+      run: pnpm -C neuroswarm/admin-node test -- --runInBand --detectOpenHandles
