@@ -54,5 +54,13 @@ services:
     environment:
       - COLLECTOR_OTLP_ENABLED=true
 
+  ns-node:
+    build: ../../neuroswarm/ns-node
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    restart: unless-stopped
+
 volumes:
   db_data:
