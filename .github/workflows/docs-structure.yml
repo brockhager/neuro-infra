@@ -1,13 +1,7 @@
 name: Documentation Structure Enforcement
 
 on:
-  pull_request:
-    paths:
-      - '**/*.md'
-  push:
-    branches: [main, master]
-    paths:
-      - '**/*.md'
+  workflow_dispatch:
 
 jobs:
   check-docs-structure:
