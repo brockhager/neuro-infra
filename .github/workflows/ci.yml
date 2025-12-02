@@ -49,10 +49,13 @@ jobs:
     - uses: actions/setup-node@v4
       with:
         node-version: '20'
-    - name: Install pnpm and workspace dependencies
+    - name: Install pnpm and package dependencies (neuro-services, admin-node, neuro-web)
       run: |
         npm install -g pnpm@8
-        pnpm install -w
+        # Install only the packages needed for tests to avoid root workspace installs
+        pnpm -C neuro-services install --frozen-lockfile
+        pnpm -C neuroswarm/admin-node install --frozen-lockfile
+        pnpm -C neuro-web install --frozen-lockfile
     - name: Install dependencies (admin-node)
       run: pnpm -C neuroswarm/admin-node install --frozen-lockfile
     - name: Install dependencies (neuro-web)
